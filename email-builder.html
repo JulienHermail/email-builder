@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HER MAIL — Email Builder (v13)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand: #ff0068;
+      --text: #111;
+      --bg: #ffffff;
+      --muted: #6b7280;
+      --surface: #f6f7f9;
+      --border: #e5e7eb;
+      --focus: #1e40af;
+      --radius: 12px;
+      --ribbon-text: #ffffff;
+      --status-info-bg: #eef2ff;
+      --status-info-fg: #1e3a8a;
+      --status-ok-bg: #ecfdf5;
+      --status-ok-fg: #065f46;
+      --status-err-bg: #fef2f2;
+      --status-err-fg: #991b1b;
+    }
+    * { box-sizing: border-box }
+    html, body { height: 100% }
+    body {
+      margin: 0;
+      font-family: Ubuntu, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5
+    }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0 }
+    .skip-link { position: absolute; left: -9999px }
+    .skip-link:focus { left: 16px; top: 16px; background: #fff; border: 2px solid var(--focus); padding: 8px 12px; border-radius: 8px; z-index: 9999 }
+
+    header { border-bottom: 1px solid var(--border); background: #2c2d2f }
+    header .wrap { max-width: 100%; margin: 0 auto; padding: 8px 16px }
+    .brand { display: flex; align-items: center; gap: 12px }
+    header h1 { margin:0; color: var(--brand); font-size: 18px }
+
+    .toolbar { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-top:6px }
+    .status-badge{
+      display:inline-flex; align-items:center; gap:6px; font-size:12px; line-height:1;
+      padding:4px 8px; border-radius:9999px; font-weight:500; background: var(--status-info-bg); color: var(--status-info-fg);
+    }
+    .status-badge::before{ content:""; width:8px; height:8px; border-radius:50%; background:currentColor; opacity:.7; }
+    #status.status-ready, #status[data-kind="ready"] { background:#ecfdf5 !important; color:#065f46 !important; }
+    #status.status-action,#status[data-kind="action"]{ background:#eef2ff !important; color:#1e3a8a !important; }
+    #status.status-error, #status[data-kind="error"] { background:#fef2f2 !important; color:#991b1b !important; }
+
+    .ribbon { background: var(--brand); color: var(--ribbon-text); border: none; cursor: pointer; padding: 10px 16px; border-radius: 9999px; font-weight: 700; }
+    .ribbon:focus { outline: 3px solid #c7d2fe }
+    .tab { padding: 8px 12px; border: 1px solid var(--border); border-radius: 9999px; background: #fff; cursor: pointer }
+    .tab.active { background: var(--brand); color: #fff; border-color: var(--brand) }
+
+    .app { display: grid; grid-template-columns: 1fr 3fr 1fr; gap: 12px; max-width: 100%; min-height: 100%; margin: 0 auto; padding: 12px }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; min-height: 80px }
+    .panel h2 { margin: 0 0 8px 0; font-size: 16px; text-transform: uppercase; letter-spacing: .03em }
+
+    /* Modal */
+    #projectModal { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.4) }
+    #modalContent { background:#fff; margin:10% auto; padding:16px; border-radius:8px; width:520px; max-width:95%; border:1px solid var(--border) }
+    .project-item { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px; border:1px solid var(--border); border-radius:8px; background:#fff; margin-bottom:8px; }
+    .action-btn { padding:6px 10px; border:1px solid var(--border); border-radius:9999px; background:#fff; cursor:pointer }
+    .modal-actions { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:8px }
+    .warn { border-color:#f59e0b; color:#9a3412 }
+    .danger { border-color:#ef4444; color:#991b1b }
+
+    /* Library */
+    .lib-tile { display:grid; grid-template-columns: 1fr 3fr; align-items:center; border:1px solid var(--border); border-radius:12px; background:#fff; padding:10px; margin-bottom:10px; user-select:none; }
+    .lib-tile[draggable="true"] { cursor: grab }
+    .lib-tile:focus { outline:3px solid #c7d2fe; outline-offset:1px; border-color:var(--focus) }
+    .lib-icon { width:36px; height:36px; display:grid; place-items:center; border-radius:8px; background: var(--surface); color:#111 }
+    .lib-label { font-weight:600 }
+    .lib-desc, #emptyHint, #inspectorForm p { font-size:12px; color:#6b7280 }
+    .lib-icon svg { width:22px; height:22px; display:block; stroke:currentColor; fill:none; stroke-width:2; vector-effect:non-scaling-stroke }
+
+    /* Canvas */
+    .canvas { background:#fff; display:flex; flex-direction:column; gap:8px; min-height:400px; padding:12px }
+    .canvas-tabs { display:flex; gap:8px; margin:8px 0 }
+    #emailPreview { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#fff }
+    #emailPreviewFrame { width:100%; height:70vh; border:0 }
+
+    .block-card { border:1px dashed var(--border); border-radius:10px; padding:10px; background:#fff; display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center }
+    .handle { cursor:grab; user-select:none; color:#6b7280 }
+    .block-actions button { margin-left:6px }
+    .icon-btn { background:#fff; border:1px solid var(--border); border-radius:9999px; padding:6px 10px; cursor:pointer }
+    .icon-btn:focus { outline:3px solid #c7d2fe; border-color:var(--focus) }
+    .selected { border-color:var(--brand); box-shadow:0 0 0 3px rgba(226,0,26,0.15) }
+
+    .block-title { font-weight:600 }
+    .rename-input{
+      width:100%; font:inherit; padding:4px 6px;
+      border:1px solid var(--border); border-radius:6px; background:#fff;
+    }
+    .rename-input:focus{ outline:3px solid #c7d2fe; border-color:var(--focus) }
+
+    /* Inspector + WYSIWYG maison */
+    .inspector .form-row { margin-top:10px }
+    .inspector .form-label { display:block; font-size:12px; color:#374151; margin-bottom:6px }
+    .inspector input[type="text"], .inspector input[type="url"], .inspector input[type="number"], .inspector select{
+      width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:#fff
+    }
+    .inspector .richbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+    .inspector .richbar button{ padding:4px 8px;border:1px solid var(--border);border-radius:9999px;background:#fff;cursor:pointer;font-size:12px }
+    .inspector .richbar button:focus{outline:3px solid #c7d2fe;border-color:var(--focus)}
+    .inspector .richbar button.active{ background:var(--brand); color:#fff; border-color:var(--brand) }
+    .inspector .rte{
+      min-height:120px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:14px;
+      background:#fff; outline:none; overflow:auto; white-space:pre-wrap; word-break:break-word;
+    }
+  </style>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to content</a>
+  <header role="banner">
+    <div class="wrap">
+      <div class="brand">
+        <h1>her.mail <span style="font-size:10px;font-weight:normal;">— Email Builder</span></h1>
+      </div>
+      <div class="toolbar">
+        <div aria-live="polite"><span id="status" class="status-badge status-ready" data-kind="ready">Ready</span></div>
+        <div style="display:flex;gap:8px">
+          <button class="tab" id="showHtmlBtn" title="Open a new tab showing the raw HTML">Show HTML</button>
+          <button class="ribbon" id="downloadBtn">Download HTML</button>
+          <button class="tab" id="openProjectBtn" title="Open a saved project">Open Project</button>
+          <button class="tab" id="saveProjectBtn" title="Save Project locally">Save Project</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="app" role="main">
+    <aside class="panel library" aria-label="Block library">
+      <h2>BLOCKS</h2>
+      <div class="lib-tiles" id="libTiles">
+        <div class="lib-tile" draggable="true" data-type="text" tabindex="0" aria-label="Text block. Drag to canvas to add.">
+          <div class="lib-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M12 6v12" /></svg></div>
+          <div><div class="lib-label">Text</div><div class="lib-desc">Drag to add a text block</div></div>
+        </div>
+        <div class="lib-tile" draggable="true" data-type="image" tabindex="0" aria-label="Image block. Drag to canvas to add.">
+          <div class="lib-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="M7 15l3-3 4 4 2-2 3 3" />
+              <circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none" />
+            </svg>
+          </div>
+          <div><div class="lib-label">Image</div><div class="lib-desc">Drag to add an image block</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="panel canvas" id="canvas" aria-label="Email (reorderable area)">
+      <h2 style="margin:0 0 8px 0;font-size:16px">YOUR EMAIL</h2>
+      <div class="canvas-tabs">
+        <button class="tab active" id="modeBuildBtn">Build</button>
+        <button class="tab" id="modeViewBtn">View</button>
+      </div>
+      <div id="emptyHint" style="color:#6b7280">Add blocks by dragging from the library.</div>
+      <div id="emailPreview" class="preview" style="display:none">
+        <iframe id="emailPreviewFrame" title="Email preview"></iframe>
+      </div>
+      <div id="blocks"></div>
+    </section>
+
+    <aside class="panel inspector" aria-label="Block options">
+      <h2>OPTIONS</h2>
+      <form id="inspectorForm" autocomplete="off"></form>
+    </aside>
+  </main>
+
+  <!-- Project modal -->
+  <div id="projectModal" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
+    <div id="modalContent">
+      <h2 id="projectModalTitle">Manage Projects</h2>
+      <div id="projectList">Loading…</div>
+      <div class="modal-actions">
+        <div style="display:flex; gap:8px;">
+          <button id="deleteAllBtn" class="action-btn warn">Delete all projects</button>
+          <button id="purgeAllBtn" class="action-btn danger">Purge all app data</button>
+        </div>
+        <button id="closeModalBtn" class="action-btn">Close</button>
+      </div>
+      <p style="color:#6b7280; font-size:12px; margin-top:8px;">Warning: deletions are irreversible. Consider exporting JSON before purging.</p>
+    </div>
+  </div>
+
+  <!-- Templates: base + blocks -->
+  <script type="text/x-template" id="tpl-email-base">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <!--[if gte mso 9]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width">
+  <title>[%[MESSAGE.SUBJECT]%] | [%[MESSAGE.PREHEADER]%]</title>
+  <style>
+    img{line-height:100%;outline:0;text-decoration:none;-ms-interpolation-mode:bicubic}
+    a img{border:none}
+    a:link{color:inherit;text-decoration:none}
+    a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;font-size:inherit!important;font-family:inherit!important;font-weight:inherit!important;line-height:inherit!important}
+    table td{border-collapse:collapse;mso-table-lspace:0;mso-table-rspace:0}
+  </style>
+</head>
+<body style="background: #f1f7ff;">
+  <div style="display: none; font-size: 1px; line-height: 1px; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; font-family: sans-serif;">
+    &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </div>
+  <div style="margin: 0 auto; max-width: 680px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="body" align="center" style="background:#f1f7ff;">
+      <tr>
+        <td valign="top" align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="680" style="min-width:680px;width:680px" align="center" class="container">
+            <tr>
+              <td valign="top" align="center">
+                {{content}}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
+  </script>
+
+  <script type="text/x-template" id="tpl-block-text">
+<!-- TEXT -->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" style="background: {{bgColor}};">
+  <tr>
+    <td style="font-family:'Ubuntu', Arial, sans-serif; line-height:18px; color: {{fontColor}}; font-size: {{fontSize}}; text-align: {{align}}; padding:0 40px 20px 40px;">
+      {{textContent}}
+    </td>
+  </tr>
+</table>
+<!-- / TEXT -->
+  </script>
+
+  <script>
+  (function(){
+    const STORAGE_KEY = 'emailbuilder.mvp.v13';
+    const $ = sel => document.querySelector(sel);
+    const blocksEl = $('#blocks');
+    const emptyHint = $('#emptyHint');
+    const inspectorForm = $('#inspectorForm');
+    const canvasPanel = document.getElementById('canvas');
+    const indexKey = 'emailbuilder.project.index';
+    const lastKey  = 'emailbuilder.project.last';
+    let viewMode = 'build';
+
+    function updateStatusLabel(text, kind='auto'){
+      const label = document.getElementById('status');
+      if(!label) return;
+      label.textContent = text;
+      label.classList.remove('status-ready','status-action','status-error');
+      label.removeAttribute('data-kind');
+      let k = kind;
+      if(k==='auto'){
+        const t = (text||'').toLowerCase();
+        if(t==='ready') k='ready';
+        else if(t.includes('error')||t.includes('failed')||t.includes('blocked')||t.includes('not found')||t.includes('cannot')) k='error';
+        else k='action';
+      }
+      label.classList.add('status-'+k);
+      label.setAttribute('data-kind', k);
+    }
+    function setStatus(msg, kind='auto'){
+      updateStatusLabel(msg, kind);
+      clearTimeout(setStatus._t);
+      setStatus._t = setTimeout(()=> updateStatusLabel('Ready','ready'), 2000);
+    }
+
+    let previewTimer;
+    function schedulePreview(){ clearTimeout(previewTimer); previewTimer = setTimeout(updatePreviewAndCode, 150); }
+
+    function getTpl(id){ const el = document.getElementById(id); return el ? el.textContent : ''; }
+    function escapeAttr(s){return String(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
+    function fill(tpl, data, unescaped=[]){ return tpl.replace(/{{(\w+)}}/g,(_,k)=> unescaped.includes(k)? String(data[k]??'') : escapeAttr(String(data[k]??''))); }
+
+    // Sanitize inline HTML for email
+    function sanitizeAllowedHTML(html){
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html || '';
+      const walk = (node)=>{
+        if(node.nodeType===3) return;
+        const allowed = ['I','STRONG','SPAN','A','BR'];
+        if(!allowed.includes(node.nodeName)){
+          node.replaceWith(document.createTextNode(node.textContent));
+          return;
+        }
+        if(node.nodeName==='SPAN'){
+          const st = node.getAttribute('style')||'';
+          const m = st.match(/font-size:\s*(\d+)px;?\s*line-height:\s*(\d+)px/i);
+          if(m) node.setAttribute('style', `font-size:${m[1]}px;line-height:${m[2]}px`); else node.removeAttribute('style');
+          [...node.attributes].forEach(a=>{ if(a.name!=='style') node.removeAttribute(a.name); });
+        }
+        if(node.nodeName==='A'){
+          const href = node.getAttribute('href')||'';
+          try{ new URL(href); }catch{ node.removeAttribute('href'); }
+          node.setAttribute('target','_blank');
+          node.setAttribute('style','color:#0D8AFF;text-decoration:underline;');
+          [...node.attributes].forEach(a=>{ if(!['href','target','style'].includes(a.name)) node.removeAttribute(a.name); });
+        }
+        Array.from(node.childNodes).forEach(walk);
+      };
+      Array.from(tmp.childNodes).forEach(walk);
+      return tmp.innerHTML;
+    }
+
+    // WYSIWYG helpers (contenteditable)
+    function caretContext(editor){
+      const sel = window.getSelection();
+      if(!sel || sel.rangeCount===0) return null;
+      const range = sel.getRangeAt(0);
+      if(!editor.contains(range.commonAncestorContainer)) return null;
+      return { sel, range };
+    }
+    function closestInEditor(node, predicate, root){
+      let n = node;
+      while(n && n!==root){
+        if(n.nodeType===1 && predicate(n)) return n;
+        n = n.parentNode;
+      }
+      return null;
+    }
+    function surroundSelectionIn(editor, tag, attrs={}){
+      const ctx = caretContext(editor); if(!ctx || ctx.range.collapsed) return;
+      const el = document.createElement(tag);
+      Object.entries(attrs).forEach(([k,v])=> el.setAttribute(k,v));
+      const frag = ctx.range.extractContents();
+      el.appendChild(frag);
+      ctx.range.insertNode(el);
+      ctx.sel.removeAllRanges();
+      const after = document.createRange();
+      after.setStartAfter(el); after.collapse(true);
+      ctx.sel.addRange(after);
+      editor.focus();
+    }
+    function unwrapNode(node){
+      const p = node.parentNode;
+      while(node.firstChild) p.insertBefore(node.firstChild, node);
+      p.removeChild(node);
+    }
+    function unwrapClosest(editor, predicate){
+      const ctx = caretContext(editor); if(!ctx) return false;
+      const base = ctx.range.commonAncestorContainer.nodeType===1 ? ctx.range.commonAncestorContainer : ctx.range.commonAncestorContainer.parentNode;
+      const target = closestInEditor(base, predicate, editor);
+      if(target){ unwrapNode(target); editor.focus(); return true; }
+      return false;
+    }
+    function isActive(editor, predicate){
+      const ctx = caretContext(editor); if(!ctx) return false;
+      const base = ctx.range.commonAncestorContainer.nodeType===1 ? ctx.range.commonAncestorContainer : ctx.range.commonAncestorContainer.parentNode;
+      return !!closestInEditor(base, predicate, editor);
+    }
+
+    // State
+    let state = load() || { blocks: [], selectedId: null };
+
+    // Blocks definitions
+    const BLOCK_DEFS = {
+      text:{
+        name:'Text',
+        defaults:{ text:'Your text…', align:'left', fontSize:16, fontColor:'#111111', bgColor:'#ffffff' },
+        inputs:[
+          {key:'text', label:'Text', type:'textarea'},
+          {key:'align', label:'Align', type:'select', options:['left','center','right']},
+          {key:'fontSize', label:'Size (px)', type:'number', min:12, max:48},
+          {key:'fontColor', label:'Text color', type:'text'},
+          {key:'bgColor', label:'Background color', type:'text'}
+        ],
+        renderTD:(p)=>{
+          const fz = Number(p.fontSize)||16;
+          const align = ['left','center','right'].includes((p.align||'').toLowerCase()) ? p.align.toLowerCase() : 'left';
+          const html = sanitizeAllowedHTML(p.text||'');
+          return '<div style="font-family:Ubuntu,Arial,sans-serif;font-size:'+fz+'px;line-height:1.6;text-align:'+align+';color:'+escapeAttr(p.fontColor||'#111111')+';background:'+escapeAttr(p.bgColor||'#ffffff')+';padding:12px 16px;margin:0 0 12px 0;">'+html+'</div>';
+        }
+      },
+      image:{
+        name:'Image',
+        defaults:{ url:'https://via.placeholder.com/600x200', alt:'', width:600 },
+        inputs:[
+          {key:'url', label:'Image URL', type:'url'},
+          {key:'alt', label:'Alt text', type:'text'},
+          {key:'width', label:'Width (px)', type:'number', min:50, max:800}
+        ],
+        renderTD:(p)=> '<div style="margin:0 0 12px 0"><img src="'+escapeAttr(p.url||'https://via.placeholder.com/600x200')+'" alt="'+escapeAttr(p.alt||'')+'" width="'+Number(p.width||600)+'" style="display:block;border:0;max-width:100%;height:auto" /></div>'
+      }
+    };
+
+    // Default label generator (unique-ish)
+    function defaultLabelFor(type){
+      const base = BLOCK_DEFS[type]?.name || type;
+      const count = (state.blocks||[]).filter(b => b.type===type).length + 1;
+      return count === 1 ? base : `${base} ${count}`;
+    }
+
+    // Migration: ensure each block has a label
+    state.blocks = (state.blocks||[]).map(b => {
+      if (!('label' in b)) {
+        const def = BLOCK_DEFS[b.type];
+        return { ...b, label: (def?.name || b.type) };
+      }
+      return b;
+    });
+    save();
+
+    // Toolbar actions
+    document.getElementById('downloadBtn').addEventListener('click', downloadHTML);
+    document.getElementById('showHtmlBtn').addEventListener('click', showHTMLInNewTab);
+    document.getElementById('saveProjectBtn').addEventListener('click', saveProjectAs);
+    document.getElementById('openProjectBtn').addEventListener('click', openProject);
+
+    const modeBuildBtn = document.getElementById('modeBuildBtn');
+    const modeViewBtn  = document.getElementById('modeViewBtn');
+    modeBuildBtn.addEventListener('click', ()=>{ if(viewMode==='build') return; viewMode='build'; modeBuildBtn.classList.add('active'); modeViewBtn.classList.remove('active'); renderCanvas(); setStatus('Build mode','action'); });
+    modeViewBtn.addEventListener('click',  ()=>{ if(viewMode==='view')  return; viewMode='view';  modeViewBtn.classList.add('active');  modeBuildBtn.classList.remove('active');  renderCanvas(); setStatus('View mode','action');  });
+
+    // Library: drag-only
+    document.querySelectorAll('.lib-tile[draggable="true"]').forEach(tile=>{
+      tile.addEventListener('dragstart', (e)=>{
+        const type = tile.getAttribute('data-type');
+        e.dataTransfer.setData('text/x-block-type', type);
+        e.dataTransfer.effectAllowed = 'copy';
+        setStatus('Dragging '+type,'action');
+      });
+      tile.addEventListener('click', (e)=> e.preventDefault());
+    });
+
+    // Canvas DnD
+    canvasPanel.addEventListener('dragover', (e)=>{
+      if(viewMode!=='build') return;
+      if(e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes('text/x-block-type')){
+        e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+      }
+    });
+    canvasPanel.addEventListener('drop', (e)=>{
+      if(viewMode!=='build') return;
+      const libType = e.dataTransfer.getData('text/x-block-type');
+      if(libType){ e.preventDefault(); addBlockAt(libType, state.blocks.length); setStatus('Block added','action'); }
+    });
+
+    // Reorder within canvas
+    let dragIndex = null;
+    function makeCard(block, index){
+      const div = document.createElement('div');
+      div.className = 'block-card' + (state.selectedId===block.id?' selected':'');
+      div.setAttribute('draggable','true');
+
+      const handle = document.createElement('div'); handle.className='handle'; handle.textContent='⋮⋮'; handle.title='Drag to reorder';
+
+      // Title + Rename
+      const titleWrap = document.createElement('div');
+      titleWrap.style.display = 'flex';
+      titleWrap.style.alignItems = 'center';
+      titleWrap.style.gap = '8px';
+
+      const title = document.createElement('div');
+      title.className = 'block-title';
+      title.textContent = (block.label || BLOCK_DEFS[block.type]?.name || block.type);
+      title.title = 'Double-click to rename';
+
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'icon-btn';
+      renameBtn.type='button';
+      renameBtn.textContent = 'Rename';
+
+      function startRename(){
+        if (titleWrap.querySelector('.rename-input')) return;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'rename-input';
+        input.value = (block.label || '').trim();
+        input.maxLength = 80;
+        title.replaceWith(input);
+        input.focus(); input.select();
+
+        const commit = ()=>{
+          const val = (input.value || '').trim();
+          block.label = val || (BLOCK_DEFS[block.type]?.name || block.type);
+          save();
+          title.textContent = block.label;
+          input.replaceWith(title);
+          setStatus('Label updated','action');
+        };
+        const cancel = ()=>{ input.replaceWith(title); };
+
+        input.addEventListener('keydown', (e)=>{
+          if(e.key==='Enter'){ e.preventDefault(); commit(); }
+          else if(e.key==='Escape'){ e.preventDefault(); cancel(); }
+        });
+        input.addEventListener('blur', commit);
+      }
+
+      title.addEventListener('dblclick', startRename);
+      renameBtn.addEventListener('click', startRename);
+
+      titleWrap.append(title, renameBtn);
+
+      const actions = document.createElement('div');
+      actions.className='block-actions';
+      const selBtn = document.createElement('button'); selBtn.className='icon-btn'; selBtn.type='button'; selBtn.textContent='Edit'; selBtn.addEventListener('click', ()=> select(block.id));
+      const delBtn = document.createElement('button'); delBtn.className='icon-btn'; delBtn.type='button'; delBtn.textContent='Delete'; delBtn.addEventListener('click', ()=> removeBlock(block.id));
+      actions.append(selBtn, delBtn);
+
+      div.append(handle, titleWrap, actions);
+
+      // DnD handlers
+      div.addEventListener('dragstart', (e)=>{ dragIndex=index; e.dataTransfer.effectAllowed='move'; });
+      div.addEventListener('dragover', (e)=>{
+        const types = Array.from(e.dataTransfer?.types||[]);
+        if(types.includes('text/x-block-type') || dragIndex!==null){ e.preventDefault(); e.dataTransfer.dropEffect = types.includes('text/x-block-type')?'copy':'move'; }
+      });
+      div.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        const libType = e.dataTransfer.getData('text/x-block-type');
+        if(libType){ addBlockAt(libType, index); setStatus('Block inserted','action'); return; }
+        const toIndex = index;
+        if(dragIndex===null || dragIndex===toIndex){ dragIndex=null; return; }
+        const moved = state.blocks.splice(dragIndex,1)[0];
+        state.blocks.splice(toIndex,0,moved);
+        dragIndex=null; save(); renderAll(); setStatus('Block reordered','action');
+      });
+
+      div.addEventListener('click', (e)=>{ if(e.target.tagName!=='BUTTON' && !e.target.classList.contains('rename-input')) select(block.id); });
+      return div;
+    }
+
+    function createBlock(type){
+      const def = BLOCK_DEFS[type]; if(!def) return null;
+      const id = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      const props = {...def.defaults};
+      const label = defaultLabelFor(type);
+      return { id, type, props, label };
+    }
+    function addBlockAt(type, index){
+      const blk = createBlock(type); if(!blk) return;
+      const i = Math.max(0, Math.min(index ?? state.blocks.length, state.blocks.length));
+      state.blocks.splice(i, 0, blk);
+      state.selectedId = blk.id;
+      save(); renderAll();
+    }
+    function removeBlock(id){
+      const i = state.blocks.findIndex(b=> b.id===id);
+      if(i>=0){ state.blocks.splice(i,1); if(state.selectedId===id) state.selectedId=null; save(); renderAll(); setStatus('Block deleted','action'); }
+    }
+    function select(id){ state.selectedId = id; renderAll(); }
+
+    function renderCanvas(){
+      const previewWrap = document.getElementById('emailPreview');
+      const blocksWrap  = document.getElementById('blocks');
+      if(viewMode==='view'){
+        blocksWrap.style.display = 'none';
+        emptyHint.style.display  = 'none';
+        previewWrap.style.display= 'block';
+        updatePreviewAndCode();
+        return;
+      }
+      previewWrap.style.display = 'none';
+      blocksWrap.style.display  = '';
+      blocksEl.innerHTML = '';
+      if(state.blocks.length===0){ emptyHint.style.display='block'; }
+      else { emptyHint.style.display='none'; state.blocks.forEach((b,i)=> blocksEl.appendChild(makeCard(b,i))); }
+    }
+
+    // Inspector with WYSIWYG and Block label field
+    function renderInspector(){
+      inspectorForm.innerHTML = '';
+      const block = state.blocks.find(b=> b.id===state.selectedId);
+      if(!block){ inspectorForm.innerHTML = '<p>Select a block to edit its options.</p>'; return; }
+      const def = BLOCK_DEFS[block.type]; if(!def) return;
+
+      def.inputs.forEach(inp=>{
+        const row = document.createElement('div'); row.className = 'form-row';
+        const lab = document.createElement('label'); lab.className = 'form-label'; lab.textContent = inp.label;
+
+        if(inp.type==='select'){
+          const sel = document.createElement('select');
+          inp.options.forEach(o=>{
+            const opt = document.createElement('option'); opt.value=o; opt.textContent=o;
+            if(block.props[inp.key]===o) opt.selected=true;
+            sel.appendChild(opt);
+          });
+          sel.addEventListener('change', ()=>{
+            block.props[inp.key] = sel.value; save(); renderCanvas(); updatePreviewAndCode(); setStatus('Option changed','action');
+          });
+          row.append(lab, sel); inspectorForm.appendChild(row);
+        } else if(block.type==='text' && inp.key==='text'){
+          const bar = document.createElement('div'); bar.className='richbar';
+          const editor = document.createElement('div'); editor.className='rte'; editor.contentEditable='true';
+          editor.innerHTML = sanitizeAllowedHTML(block.props.text||'');
+
+          const mkBtn = (html, handler)=>{
+            const b = document.createElement('button'); b.type='button'; b.innerHTML=html;
+            b.addEventListener('mousedown', e=> e.preventDefault());
+            b.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); handler(b); });
+            return b;
+          };
+          const italicBtn = mkBtn('<span style="font-style:italic">i</span>', ()=>{
+            if(isActive(editor, n=> n.nodeName==='I')) unwrapClosest(editor, n=> n.nodeName==='I');
+            else surroundSelectionIn(editor,'i');
+            syncFromEditor(); updateToolbarStates();
+          });
+          const boldBtn   = mkBtn('<strong>B</strong>', ()=>{
+            if(isActive(editor, n=> n.nodeName==='STRONG')) unwrapClosest(editor, n=> n.nodeName==='STRONG');
+            else surroundSelectionIn(editor,'strong');
+            syncFromEditor(); updateToolbarStates();
+          });
+          const sizeBtn   = mkBtn('Fz', ()=>{
+            if(isActive(editor, n=> n.nodeName==='SPAN' && /font-size:\s*\d+px/i.test(n.getAttribute('style')||''))){
+              unwrapClosest(editor, n=> n.nodeName==='SPAN' && /font-size:\s*\d+px/i.test(n.getAttribute('style')||''));
+            } else {
+              const v = prompt('Font size (px):', String(block.props.fontSize||16));
+              const n = Math.max(8, Math.min(96, Number(v||0)));
+              if(n){ const lh=n+4; surroundSelectionIn(editor,'span',{style:`font-size:${n}px;line-height:${lh}px`}); }
+            }
+            syncFromEditor(); updateToolbarStates();
+          });
+          const linkBtn   = mkBtn('🔗', ()=>{
+            if(isActive(editor, n=> n.nodeName==='A')) unwrapClosest(editor, n=> n.nodeName==='A');
+            else {
+              const url = prompt('Link URL (https://…):','https://');
+              if(url){ surroundSelectionIn(editor,'a',{href:url,target:'_blank',style:'color:#0D8AFF;text-decoration:underline;'}); }
+            }
+            syncFromEditor(); updateToolbarStates();
+          });
+          bar.append(italicBtn,boldBtn,sizeBtn,linkBtn);
+
+          function syncFromEditor(){
+            const clean = sanitizeAllowedHTML(editor.innerHTML);
+            if(clean !== editor.innerHTML) editor.innerHTML = clean;
+            block.props[inp.key] = clean; save(); schedulePreview();
+          }
+          function updateToolbarStates(){
+            italicBtn.classList.toggle('active', isActive(editor, n=> n.nodeName==='I'));
+            boldBtn.classList.toggle('active',   isActive(editor, n=> n.nodeName==='STRONG'));
+            sizeBtn.classList.toggle('active',   isActive(editor, n=> n.nodeName==='SPAN' && /font-size:\s*\d+px/i.test(n.getAttribute('style')||'')));
+            linkBtn.classList.toggle('active',   isActive(editor, n=> n.nodeName==='A'));
+          }
+
+          // Enter handling: Enter => 2 <br>, Shift+Enter => 1 <br>
+          editor.addEventListener('keydown', (e)=>{
+            if(e.key === 'Enter'){
+              e.preventDefault();
+              const count = e.shiftKey ? 1 : 2; // Shift+Enter = 1; Enter = 2
+              const sel = window.getSelection(); if(!sel || sel.rangeCount===0) return;
+              const range = sel.getRangeAt(0); if(!editor.contains(range.commonAncestorContainer)) return;
+              range.deleteContents();
+              const frag = document.createDocumentFragment();
+              let lastBr = null;
+              for(let i=0;i<count;i++){ lastBr = document.createElement('br'); frag.appendChild(lastBr); }
+              range.insertNode(frag);
+              sel.removeAllRanges();
+              const r = document.createRange(); r.setStartAfter(lastBr); r.collapse(true); sel.addRange(r);
+              editor.focus();
+              syncFromEditor(); updateToolbarStates();
+            }
+          });
+
+          editor.addEventListener('input', syncFromEditor);
+          editor.addEventListener('paste', (e)=>{
+            e.preventDefault();
+            const html = (e.clipboardData && e.clipboardData.getData('text/html')) || e.clipboardData.getData('text/plain') || '';
+            const tmpDiv = document.createElement('div'); tmpDiv.innerHTML = sanitizeAllowedHTML(html);
+            const sel = window.getSelection();
+            if(sel && sel.rangeCount){
+              const range = sel.getRangeAt(0);
+              if(editor.contains(range.commonAncestorContainer)){
+                range.deleteContents();
+                while(tmpDiv.firstChild){ range.insertNode(tmpDiv.firstChild); }
+              }
+            }
+            syncFromEditor(); updateToolbarStates();
+          });
+          editor.addEventListener('keyup', updateToolbarStates);
+          editor.addEventListener('mouseup', updateToolbarStates);
+          editor.addEventListener('blur', ()=>{ renderCanvas(); updatePreviewAndCode(); setStatus('Field updated','action'); });
+
+          row.append(lab, bar, editor); inspectorForm.appendChild(row);
+
+        } else {
+          const field = document.createElement(inp.type==='textarea'?'textarea':'input');
+          if(inp.type!=='textarea') field.type = inp.type;
+          if(inp.min!=null) field.min = inp.min;
+          if(inp.max!=null) field.max = inp.max;
+          field.value = block.props[inp.key] ?? '';
+          field.addEventListener('input', ()=>{
+            let v = field.value; if(inp.type==='number') v = Number(v||0);
+            block.props[inp.key] = v; save(); schedulePreview();
+          });
+          field.addEventListener('blur', ()=>{ renderCanvas(); updatePreviewAndCode(); setStatus('Field updated','action'); });
+          row.append(lab, field); inspectorForm.appendChild(row);
+        }
+      });
+    }
+
+    function renderAll(){ renderCanvas(); renderInspector(); updatePreviewAndCode(); }
+
+    function renderEmailBlock(b){
+      if(b.type==='text'){
+        const p = b.props || {};
+        const tpl = getTpl('tpl-block-text');
+        const fontSize = /(\d+)(px|em|rem|%)$/i.test(String(p.fontSize)) ? String(p.fontSize) : (Number(p.fontSize)||16)+'px';
+        const align = ['left','center','right'].includes((p.align||'').toLowerCase()) ? p.align.toLowerCase() : 'left';
+        const data = { bgColor:p.bgColor||'#ffffff', fontColor:p.fontColor||'#111111', fontSize, align, textContent: sanitizeAllowedHTML(p.text||'') };
+        return fill(tpl, data, ['textContent']);
+      }
+      if(b.type==='image'){
+        const p = b.props || {};
+        const url = escapeAttr(p.url || 'https://via.placeholder.com/600x200');
+        const alt = escapeAttr(p.alt || '');
+        const width = Number(p.width || 600);
+        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td style="padding:16px"><img src="'+url+'" alt="'+alt+'" width="'+width+'" style="display:block;border:0;max-width:100%;height:auto" /></td></tr></table>';
+      }
+      return '';
+    }
+    function generateEmailHTML(model){
+      const rows = model.blocks.map(renderEmailBlock).join('');
+      const base = getTpl('tpl-email-base');
+      return base.replace('{{content}}', rows);
+    }
+    function updatePreviewAndCode(){
+      const html = generateEmailHTML(state);
+      const frame = document.getElementById('emailPreviewFrame');
+      if(frame){ const doc = frame.contentDocument || frame.contentWindow.document; doc.open(); doc.write(html); doc.close(); }
+    }
+
+    function showHTMLInNewTab(){
+      const html = generateEmailHTML(state);
+      const w = window.open('', '_blank'); if(!w){ setStatus('Popup blocked','error'); return; }
+      w.document.open();
+      w.document.write('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>HTML (raw)</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;font-family:Ubuntu,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#fff;color:#111}.bar{display:flex;justify-content:flex-end;gap:8px;padding:8px;border-bottom:1px solid #e5e7eb;background:#f6f7f9;position:sticky;top:0}.btn{padding:8px 12px;border:1px solid #e5e7eb;border-radius:9999px;background:#fff;cursor:pointer}pre{margin:0;padding:16px;white-space:pre-wrap;word-break:break-word}</style></head><body><div class="bar"><button id="copyBtn" class="btn">Copy HTML</button></div><pre id="code"></pre></body></html>');
+      w.document.close();
+      const onReady = ()=>{ const pre = w.document.getElementById('code'); if(pre) pre.textContent = html; const copyBtn = w.document.getElementById('copyBtn'); if(copyBtn){ copyBtn.addEventListener('click', async ()=>{ try{ await w.navigator.clipboard.writeText(html); copyBtn.textContent='Copied'; }catch(e){ const ta=w.document.createElement('textarea'); ta.value=html; w.document.body.appendChild(ta); ta.select(); w.document.execCommand('copy'); ta.remove(); copyBtn.textContent='Copied'; } setTimeout(()=> copyBtn.textContent='Copy HTML', 1500); }); } };
+      try{ onReady(); }catch(e){}
+      w.addEventListener('load', onReady);
+      setStatus('Opened HTML','action');
+    }
+    function downloadHTML(){
+      const html = generateEmailHTML(state);
+      const blob = new Blob([html], {type:'text/html'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='email.html';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=> URL.revokeObjectURL(url), 1000);
+      setStatus('Download started','action');
+    }
+
+    // Projects
+    function listProjectNames(){ let index = localStorage.getItem(indexKey); if(!index) return []; try{ return JSON.parse(index); }catch{ return []; } }
+    function saveProjectIndex(names){ localStorage.setItem(indexKey, JSON.stringify(names)); }
+    function saveProjectAs(){
+      const suggested = localStorage.getItem(lastKey) || 'My project';
+      const name = prompt('Save project as:', suggested); if(!name) return;
+      try{
+        localStorage.setItem('emailbuilder.project.'+name, JSON.stringify(state));
+        let idx = listProjectNames(); if(!idx.includes(name)){ idx.push(name); saveProjectIndex(idx); }
+        localStorage.setItem(lastKey, name); setStatus('Project saved','action');
+      }catch(e){ setStatus('Save failed','error'); console.error(e); }
+    }
+    function loadProject(name){
+      if(!name) return null;
+      const data = localStorage.getItem('emailbuilder.project.'+name); if(!data){ alert('Project not found: '+name); return null; }
+      try{
+        const project = JSON.parse(data); state = project;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); localStorage.setItem(lastKey, name);
+        renderAll(); setStatus('Project opened','action'); return project;
+      }catch(e){ alert('Failed to parse project data.'); return null; }
+    }
+    function openProject(){ renderProjectList(); document.getElementById('projectModal').style.display='block'; }
+    function closeProjectModal(){ document.getElementById('projectModal').style.display='none'; }
+    document.getElementById('closeModalBtn').addEventListener('click', closeProjectModal);
+    window.addEventListener('click', (evt)=>{ const modal = document.getElementById('projectModal'); if(evt.target===modal) closeProjectModal(); });
+    function renderProjectList(){
+      const container = document.getElementById('projectList'); container.innerHTML='';
+      const projects = listProjectNames(); if(projects.length===0){ container.textContent='No saved projects.'; return; }
+      projects.forEach(name=>{
+        const div = document.createElement('div'); div.className='project-item';
+        const span = document.createElement('span'); span.className='project-name'; span.textContent=name; span.title='Click to open this project';
+        span.onclick = ()=>{ if(confirm('Open project "'+name+'"? Unsaved changes will be lost.')){ loadProject(name); closeProjectModal(); } };
+        const renameBtn = document.createElement('button'); renameBtn.className='action-btn'; renameBtn.textContent='Rename';
+        renameBtn.onclick = ()=>{ const nn = prompt('Enter new project name:', name); if(nn && nn!==name){ renameProject(name, nn); renderProjectList(); } };
+        const deleteBtn = document.createElement('button'); deleteBtn.className='action-btn'; deleteBtn.textContent='Delete';
+        deleteBtn.onclick = ()=>{ if(confirm('Delete project "'+name+'"? This action cannot be undone.')){ deleteProject(name); renderProjectList(); } };
+        div.append(span, renameBtn, deleteBtn); container.appendChild(div);
+      });
+    }
+    function deleteProject(name){
+      let projects = listProjectNames(); if(!projects.includes(name)){ alert('Project not found.'); return; }
+      localStorage.removeItem('emailbuilder.project.'+name);
+      projects = projects.filter(n=> n!==name); saveProjectIndex(projects);
+      if(localStorage.getItem(lastKey)===name){ localStorage.removeItem(lastKey); }
+      setStatus('Project deleted','action');
+    }
+    function renameProject(oldName, newName){
+      newName = newName.trim(); if(!newName){ alert('New project name cannot be empty.'); return; }
+      let projects = listProjectNames(); if(!projects.includes(oldName)){ alert('Original project not found.'); return; }
+      if(projects.includes(newName)){ alert('Project name already exists.'); return; }
+      const data = localStorage.getItem('emailbuilder.project.'+oldName); if(!data){ alert('Original project data missing.'); return; }
+      try{
+        localStorage.setItem('emailbuilder.project.'+newName, data);
+        localStorage.removeItem('emailbuilder.project.'+oldName);
+        projects = projects.filter(n=> n!==oldName); projects.push(newName); saveProjectIndex(projects);
+        if(localStorage.getItem(lastKey)===oldName){ localStorage.setItem(lastKey, newName); }
+        setStatus('Project renamed','action');
+      }catch{ alert('Rename failed due to storage error.'); }
+    }
+    document.getElementById('deleteAllBtn').onclick = ()=>{ if(!confirm('Delete ALL saved projects? This action cannot be undone.')) return;
+      Object.keys(localStorage).filter(k=> k.startsWith('emailbuilder.project.')).forEach(k=> localStorage.removeItem(k));
+      localStorage.removeItem(indexKey); localStorage.removeItem(lastKey);
+      renderProjectList(); setStatus('All projects deleted','action');
+    };
+    document.getElementById('purgeAllBtn').onclick = ()=>{ if(!confirm('Purge ALL app data (projects, autosave, last used)? This cannot be undone.')) return;
+      Object.keys(localStorage).filter(k=> k.startsWith('emailbuilder.')).forEach(k=> localStorage.removeItem(k));
+      state = { blocks: [], selectedId: null }; renderAll(); setStatus('All app data purged','error'); closeProjectModal();
+    };
+
+    function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function load(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)); }catch(e){ return null; } }
+
+    // Init
+    updateStatusLabel('Ready','ready');
+    renderAll();
+  })();
+  </script>
+</body>
+</html>
